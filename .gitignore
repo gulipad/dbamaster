@@ -2,5 +2,7 @@ node_modules
 dist
 .mastra
 mastra.db
+mastra.db-shm
+mastra.db-wal
 .env
 .DS_Store

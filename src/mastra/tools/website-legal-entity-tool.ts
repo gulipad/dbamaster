@@ -26,6 +26,9 @@ async function fetchViaJina(
 ): Promise<string | null> {
   const jinaUrl = `https://r.jina.ai/${url}`;
   const headers: Record<string, string> = { Accept: 'text/plain' };
+  if (process.env.JINA_API_KEY) {
+    headers['Authorization'] = `Bearer ${process.env.JINA_API_KEY}`;
+  }
   if (options?.withLinks) {
     headers['X-With-Links-Summary'] = 'all';
   }
