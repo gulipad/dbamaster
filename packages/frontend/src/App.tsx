@@ -515,6 +515,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "8px 16px",
     cursor: "pointer",
     whiteSpace: "nowrap",
+    outline: "none",
   },
   output: {
     maxHeight: "calc(100vh - 220px)",
