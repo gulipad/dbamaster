@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, type CSSProperties } from "re
 import { MastraClient } from "@mastra/client-js";
 
 const client = new MastraClient({ baseUrl: "" });
+const STORAGE_KEY = "dbamaster:password";
 
 const ASCII_FRONT = `
 ██████╗ ██████╗  █████╗ ███╗   ███╗ █████╗ ███████╗████████╗███████╗██████╗
@@ -20,6 +21,10 @@ const ASCII_BACK = `
 ██████  ██████  ██   ██ ██      ██ ██   ██ ███████    ██    ███████ ██   ██
 `.trimStart();
 
+const ASCII_FRONT_LINES = ASCII_FRONT.trimEnd().split("\n");
+
+type Stage = "loading" | "password" | "ready";
+
 type LogEntry =
   | { type: "system"; text: string }
   | { type: "tool-call"; name: string }
@@ -27,13 +32,56 @@ type LogEntry =
   | { type: "text"; text: string }
   | { type: "error"; text: string };
 
+async function verifyPassword(password: string): Promise<boolean> {
+  const res = await fetch("/auth/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  const data = await res.json();
+  return data.valid === true;
+}
+
 export function App() {
+  const [stage, setStage] = useState<Stage>("loading");
+  const [bootLines, setBootLines] = useState(0);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
   const [input, setInput] = useState("");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [done, setDone] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  // Check stored password on mount
+  useEffect(() => {
+    (async () => {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const valid = await verifyPassword(stored);
+        if (valid) {
+          setStage("ready");
+          return;
+        }
+        localStorage.removeItem(STORAGE_KEY);
+      }
+      setStage("password");
+    })();
+  }, []);
+
+  // Boot animation: front layer reveals line by line
+  useEffect(() => {
+    if (bootLines >= ASCII_FRONT_LINES.length) return;
+    const timer = setTimeout(() => setBootLines((n) => n + 1), 80);
+    return () => clearTimeout(timer);
+  }, [bootLines]);
+
+  // Focus password input
+  useEffect(() => {
+    if (stage === "password") passwordRef.current?.focus();
+  }, [stage]);
 
   const scrollToBottom = useCallback(() => {
     if (outputRef.current) {
@@ -45,8 +93,47 @@ export function App() {
     scrollToBottom();
   }, [logs, scrollToBottom]);
 
+  // Password handlers
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    setPasswordError(false);
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!password) return;
+    const valid = await verifyPassword(password);
+    if (valid) {
+      localStorage.setItem(STORAGE_KEY, password);
+      setStage("ready");
+    } else {
+      setPasswordError(true);
+      setPassword("");
+    }
+  };
+
+  const handlePasswordKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handlePasswordSubmit();
+  };
+
+  // Query handlers
   const handleStart = async () => {
     if (!input.trim() || streaming) return;
+
+    // Verify password still valid
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      setStage("password");
+      setPassword("");
+      return;
+    }
+    const valid = await verifyPassword(stored);
+    if (!valid) {
+      localStorage.removeItem(STORAGE_KEY);
+      setStage("password");
+      setPassword("");
+      setLogs([]);
+      return;
+    }
 
     setLogs([{ type: "system", text: `> ${input}` }]);
     setStreaming(true);
@@ -102,17 +189,48 @@ export function App() {
     inputRef.current?.focus();
   };
 
+  const animDone = bootLines >= ASCII_FRONT_LINES.length;
+  const frontRevealed = animDone
+    ? ASCII_FRONT
+    : ASCII_FRONT_LINES.slice(0, bootLines).join("\n") + "\n";
+
   return (
     <div style={styles.container}>
       <div style={styles.asciiWrapper}>
-        <pre style={styles.asciiShadow}>{ASCII_BACK}</pre>
-        <pre style={styles.ascii}>{ASCII_FRONT}</pre>
+        <pre style={styles.asciiBack}>{ASCII_BACK}</pre>
+        <pre style={styles.asciiFront}>{frontRevealed}</pre>
       </div>
       <p style={styles.subtitle}>legal entity finder // v1.0</p>
 
       <div style={styles.divider} />
 
-      {logs.length === 0 ? (
+      {stage === "loading" ? null : stage === "password" ? (
+        <div style={styles.passwordArea}>
+          <div style={styles.passwordRow}>
+            <span style={{ opacity: passwordError ? 1 : 0.6, fontSize: "0.8rem", color: passwordError ? "#ff4444" : "var(--amber)" }}>
+              {passwordError ? "access denied. try again." : "enter password to start"}
+            </span>
+          </div>
+          <div style={styles.inputRow} onClick={() => passwordRef.current?.focus()}>
+            <span style={styles.prompt}>&gt;</span>
+            <div style={{ position: "relative", flex: 1 }}>
+              <input
+                ref={passwordRef}
+                type="password"
+                value={password}
+                onChange={handlePasswordChange}
+                onKeyDown={handlePasswordKeyDown}
+                autoFocus
+                style={styles.hiddenInput}
+              />
+              <span style={styles.passwordText}>
+                {"*".repeat(password.length)}
+                <span style={styles.cursor}>█</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : logs.length === 0 ? (
         <div style={styles.inputArea}>
           <p style={styles.hint}>
             Enter a DBA name, website, and/or address to find the legal entity.
@@ -193,12 +311,10 @@ const styles: Record<string, CSSProperties> = {
   },
   asciiWrapper: {
     position: "relative",
-    marginBottom: 4,
+    marginBottom: 28,
   },
-  asciiShadow: {
-    position: "absolute",
-    top: 2,
-    left: 2,
+  asciiBack: {
+    position: "relative",
     fontSize: "0.7rem",
     lineHeight: 1.2,
     color: "var(--amber-dim)",
@@ -206,8 +322,10 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "pre",
     userSelect: "none",
   },
-  ascii: {
-    position: "relative",
+  asciiFront: {
+    position: "absolute",
+    top: -2,
+    left: -2,
     fontSize: "0.7rem",
     lineHeight: 1.2,
     color: "var(--amber)",
@@ -222,6 +340,32 @@ const styles: Record<string, CSSProperties> = {
     borderBottom: "1px solid var(--amber-dim)",
     opacity: 0.3,
     marginBottom: 24,
+  },
+  passwordArea: {
+    outline: "none",
+  },
+  passwordRow: {
+    marginBottom: 12,
+    color: "var(--amber)",
+  },
+  hiddenInput: {
+    position: "absolute",
+    opacity: 0,
+    width: "100%",
+    height: "100%",
+    top: 0,
+    left: 0,
+    border: "none",
+    background: "transparent",
+    color: "transparent",
+    fontFamily: "inherit",
+    fontSize: "0.85rem",
+    outline: "none",
+    caretColor: "transparent",
+  },
+  passwordText: {
+    fontSize: "0.85rem",
+    letterSpacing: "0.15em",
   },
   hint: {
     fontSize: "0.8rem",

@@ -13,6 +13,7 @@
 body {
   background: #000;
   color: var(--amber);
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23ffb000'/%3E%3C/svg%3E") 4 4, auto;
   font-family: "SF Mono", Monaco, "Inconsolata", "Fira Mono",
     "Droid Sans Mono", "Source Code Pro", monospace;
   min-height: 100vh;
