@@ -1,0 +1,13 @@
+diff --git a/dist/chunk-FHJ2KIU5.js b/dist/chunk-FHJ2KIU5.js
+index 3af1a9c6b2dd886394c19aae0349bbc296d5b142..0218b14a0f15ba14c375e42677f17646ab02382a 100644
+--- a/dist/chunk-FHJ2KIU5.js
++++ b/dist/chunk-FHJ2KIU5.js
+@@ -31,7 +31,7 @@ var CoreToolBuilder = class extends MastraBase {
+       if (isZodObject(schema)) {
+         this.originalTool.inputSchema = schema.extend({
+           suspendedToolRunId: z.string().describe("The runId of the suspended tool").nullable().optional().default(""),
+-          resumeData: z.any().describe("The resumeData object created from the resumeSchema of suspended tool").optional()
++          resumeData: z.string().describe("The resumeData object created from the resumeSchema of suspended tool (JSON-encoded)").optional()
+         });
+       }
+     }
