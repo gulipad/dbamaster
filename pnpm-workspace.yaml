@@ -1,5 +1,8 @@
+packages:
+  - packages/*
+
 onlyBuiltDependencies:
   - esbuild
 
 patchedDependencies:
-  '@mastra/core@1.8.0': patches/@mastra__core@1.8.0.patch
+  '@mastra/core@1.8.0': packages/backend/patches/@mastra__core@1.8.0.patch
