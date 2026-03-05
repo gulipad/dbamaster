@@ -1,0 +1,43 @@
+:root {
+  --amber: #ffb000;
+  --amber-dim: #cc8c00;
+  --amber-glow: rgba(255, 176, 0, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #000;
+  color: var(--amber);
+  font-family: "SF Mono", Monaco, "Inconsolata", "Fira Mono",
+    "Droid Sans Mono", "Source Code Pro", monospace;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--amber);
+  color: #000;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--amber-dim);
+  border-radius: 3px;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
