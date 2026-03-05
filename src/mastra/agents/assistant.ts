@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { google } from '@ai-sdk/google';
 import { memory } from '../config/memory';
-import { todaysDateTool, websiteLegalEntityTool } from '../tools';
+import { todaysDateTool, websiteLegalEntityTool, sosBusinessSearchTool } from '../tools';
 
 export const assistant = new Agent({
   id: 'assistant',
@@ -23,7 +23,9 @@ Given a DBA (Doing Business As) name, address, and website, your job is to deter
    - Use the surrounding context to confirm the entity operates the DBA in question
    - The copyright footer is also a strong signal
 
-3. Cross-reference with the address provided — if multiple candidates exist, prefer the one whose state/location matches the address.
+3. If you don't have a high-confidence answer from the website, use the sos-business-search tool to search the state's Secretary of State business registry. Derive the state from the address provided. Search using the DBA/trade name and look for matching entity registrations. Cross-reference findings with what you found on the website.
+
+4. Cross-reference with the address provided — if multiple candidates exist, prefer the one whose state/location matches the address.
 
 ## Response Format
 
@@ -39,6 +41,7 @@ If you cannot determine the legal entity with any confidence, say so clearly and
   tools: {
     todaysDateTool,
     websiteLegalEntityTool,
+    sosBusinessSearchTool,
   },
   memory: memory(),
   defaultOptions: {
