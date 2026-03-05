@@ -30,7 +30,8 @@ type LogEntry =
   | { type: "tool-call"; name: string }
   | { type: "tool-result"; name: string }
   | { type: "text"; text: string }
-  | { type: "error"; text: string };
+  | { type: "error"; text: string }
+  | { type: "progress"; text: string };
 
 async function verifyPassword(password: string): Promise<boolean> {
   const res = await fetch("/auth/verify", {
@@ -93,6 +94,21 @@ export function App() {
     scrollToBottom();
   }, [logs, scrollToBottom]);
 
+  const handleReset = useCallback(() => {
+    setLogs([]);
+    setDone(false);
+    setInput("");
+  }, []);
+
+  useEffect(() => {
+    if (!done) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter") handleReset();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [done, handleReset]);
+
   // Password handlers
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
@@ -115,9 +131,11 @@ export function App() {
     if (e.key === "Enter") handlePasswordSubmit();
   };
 
+  const hasWebsite = /[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(input);
+
   // Query handlers
   const handleStart = async () => {
-    if (!input.trim() || streaming) return;
+    if (!hasWebsite || streaming) return;
 
     // Verify password still valid
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -139,6 +157,19 @@ export function App() {
     setStreaming(true);
     setDone(false);
 
+    // Subscribe to progress SSE
+    const sse = new EventSource("/progress");
+    sse.onmessage = (event) => {
+      const text = JSON.parse(event.data) as string;
+      setLogs((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.type === "progress") {
+          return [...prev.slice(0, -1), { type: "progress", text }];
+        }
+        return [...prev, { type: "progress", text }];
+      });
+    };
+
     try {
       const agent = client.getAgent("assistant");
       const stream = await agent.stream(input);
@@ -148,11 +179,13 @@ export function App() {
           if (chunk.type === "text-delta") {
             const text = chunk.payload.text;
             setLogs((prev) => {
-              const last = prev[prev.length - 1];
+              // Remove trailing progress line when text starts
+              const filtered = prev[prev.length - 1]?.type === "progress" ? prev.slice(0, -1) : prev;
+              const last = filtered[filtered.length - 1];
               if (last?.type === "text") {
-                return [...prev.slice(0, -1), { type: "text", text: last.text + text }];
+                return [...filtered.slice(0, -1), { type: "text", text: last.text + text }];
               }
-              return [...prev, { type: "text", text }];
+              return [...filtered, { type: "text", text }];
             });
           } else if (chunk.type === "tool-call") {
             setLogs((prev) => [
@@ -160,10 +193,11 @@ export function App() {
               { type: "tool-call", name: chunk.payload.toolName },
             ]);
           } else if (chunk.type === "tool-result") {
-            setLogs((prev) => [
-              ...prev,
-              { type: "tool-result", name: chunk.payload.toolName },
-            ]);
+            setLogs((prev) => {
+              // Remove trailing progress line when tool completes
+              const filtered = prev[prev.length - 1]?.type === "progress" ? prev.slice(0, -1) : prev;
+              return [...filtered, { type: "tool-result", name: chunk.payload.toolName }];
+            });
           }
         },
       });
@@ -173,6 +207,7 @@ export function App() {
         { type: "error", text: `ERROR: ${err instanceof Error ? err.message : String(err)}` },
       ]);
     } finally {
+      sse.close();
       setStreaming(false);
       setDone(true);
     }
@@ -182,12 +217,6 @@ export function App() {
     if (e.key === "Enter") handleStart();
   };
 
-  const handleReset = () => {
-    setLogs([]);
-    setDone(false);
-    setInput("");
-    inputRef.current?.focus();
-  };
 
   const animDone = bootLines >= ASCII_FRONT_LINES.length;
   const frontRevealed = animDone
@@ -233,7 +262,7 @@ export function App() {
       ) : logs.length === 0 ? (
         <div style={styles.inputArea}>
           <p style={styles.hint}>
-            Enter a DBA name, website, and/or address to find the legal entity.
+            Enter a website URL to find the legal entity. Optionally include a DBA name.
           </p>
           <div style={styles.inputRow}>
             <span style={styles.prompt}>&gt;</span>
@@ -243,17 +272,17 @@ export function App() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="e.g. Joe's Pizza, joespizza.com, 123 Main St NY"
+              placeholder="e.g. joespizza.com or joespizza.com, DBA Joe's Pizza"
               autoFocus
               disabled={streaming}
             />
             <button
               style={{
                 ...styles.button,
-                opacity: input.trim() && !streaming ? 1 : 0.4,
+                opacity: hasWebsite && !streaming ? 1 : 0.4,
               }}
               onClick={handleStart}
-              disabled={!input.trim() || streaming}
+              disabled={!hasWebsite || streaming}
             >
               [ START ]
             </button>
@@ -268,13 +297,96 @@ export function App() {
           {done && (
             <>
               <div style={{ ...styles.divider, marginTop: 16 }} />
-              <button style={styles.button} onClick={handleReset}>
-                [ NEW SEARCH ]
+              <button style={styles.button} onClick={handleReset} autoFocus>
+                [ NEW SEARCH ] or press Enter
               </button>
             </>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+interface ParsedField {
+  key: string;
+  value: string;
+}
+
+function parseResultText(text: string): { preamble: string; fields: ParsedField[]; rest: string } {
+  const lines = text.split("\n");
+  const fields: ParsedField[] = [];
+  let firstFieldLine = -1;
+  let lastFieldLine = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    // Match **Key**: Value  or  - **Key**: Value
+    const match = lines[i].match(/^[-*•]?\s*\*\*(.+?)\*\*:\s*(.*)/);
+    if (match) {
+      if (firstFieldLine === -1) firstFieldLine = i;
+      lastFieldLine = i;
+      fields.push({ key: match[1].trim(), value: match[2].trim() });
+    } else if (fields.length > 0 && lastFieldLine === i - 1 && /^\s*[*-]\s+/.test(lines[i])) {
+      // Continuation line (sub-list item like "* url") — append to last field
+      const cleaned = lines[i].replace(/^\s*[*-]\s+/, "").trim();
+      fields[fields.length - 1].value += (fields[fields.length - 1].value ? ", " : "") + cleaned;
+      lastFieldLine = i;
+    }
+  }
+
+  if (fields.length < 3) {
+    return { preamble: text, fields: [], rest: "" };
+  }
+
+  const preamble = lines.slice(0, firstFieldLine).join("\n").trim();
+  const rest = lines.slice(lastFieldLine + 1).join("\n").trim();
+  return { preamble, fields, rest };
+}
+
+function CLISection({ label, children, noBorderTop }: { label?: string; children: React.ReactNode; noBorderTop?: boolean }) {
+  return (
+    <div
+      style={{
+        padding: "0.6rem 0.75rem",
+        borderTop: noBorderTop ? "none" : "1px solid rgba(204, 140, 0, 0.25)",
+      }}
+    >
+      {label && (
+        <div
+          style={{
+            fontSize: "0.6rem",
+            opacity: 0.5,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            marginBottom: 4,
+          }}
+        >
+          {label}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function ResultText({ text }: { text: string }) {
+  const { preamble, fields, rest } = parseResultText(text);
+
+  if (fields.length === 0) {
+    return <div style={styles.logText}>{text}</div>;
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      {preamble && <div style={{ ...styles.logText, marginBottom: 12 }}>{preamble}</div>}
+      <div style={styles.cliFrame}>
+        {fields.map((field, i) => (
+          <CLISection key={i} label={field.key} noBorderTop={i === 0}>
+            <div style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>{field.value}</div>
+          </CLISection>
+        ))}
+      </div>
+      {rest && <div style={{ ...styles.logText, marginTop: 12 }}>{rest}</div>}
     </div>
   );
 }
@@ -296,7 +408,9 @@ function LogLine({ entry }: { entry: LogEntry }) {
         </div>
       );
     case "text":
-      return <div style={styles.logText}>{entry.text}</div>;
+      return <ResultText text={entry.text} />;
+    case "progress":
+      return <div style={styles.logProgress}>{entry.text}</div>;
     case "error":
       return <div style={styles.logError}>{entry.text}</div>;
   }
@@ -435,6 +549,18 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1.6,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
+  },
+  cliFrame: {
+    fontFamily: "inherit",
+    color: "var(--amber)",
+  },
+  logProgress: {
+    fontSize: "0.7rem",
+    color: "var(--amber-dim)",
+    opacity: 0.7,
+    marginBottom: 2,
+    paddingLeft: 8,
+    fontStyle: "italic",
   },
   logError: {
     fontSize: "0.8rem",

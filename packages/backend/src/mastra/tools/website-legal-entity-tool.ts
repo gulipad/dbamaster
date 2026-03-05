@@ -2,6 +2,7 @@ import { createCapTool } from '../utils/schema-helpers';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { emitProgress } from '../config/progress';
 
 const llm = google('gemini-3.1-flash-lite-preview');
 
@@ -36,14 +37,14 @@ async function fetchViaJina(
   try {
     const response = await fetch(jinaUrl, { headers });
     if (!response.ok) {
-      console.log(`[jina] FAILED ${url} — status ${response.status}`);
+      emitProgress(`[jina] FAILED ${url} — status ${response.status}`);
       return null;
     }
     const text = await response.text();
-    console.log(`[jina] Fetched ${url} — ${text.length.toLocaleString()} chars`);
+    emitProgress(`[jina] Fetched ${url} — ${text.length.toLocaleString()} chars`);
     return text;
   } catch (err) {
-    console.log(`[jina] ERROR ${url} —`, err);
+    emitProgress(`[jina] ERROR ${url} — ${err}`);
     return null;
   }
 }
@@ -147,9 +148,9 @@ async function extractEntitiesFromPage(
 ): Promise<Finding[]> {
   // Huge pages: fall back to regex instead of sending to LLM
   if (pageContent.length > REGEX_FALLBACK_CHARS) {
-    console.log(`[extract] ${sourceUrl} — too large (${pageContent.length.toLocaleString()} chars), using regex`);
+    emitProgress(`[extract] ${sourceUrl} — too large (${pageContent.length.toLocaleString()} chars), using regex`);
     const results = extractEntitiesViaRegex(pageContent, sourceUrl);
-    console.log(`[extract] ${sourceUrl} — regex found ${results.length} candidate(s)`);
+    emitProgress(`[extract] ${sourceUrl} — regex found ${results.length} candidate(s)`);
     return results;
   }
 
@@ -185,13 +186,13 @@ Page content:
 ${pageContent}`,
     });
 
-    console.log(`[extract] ${sourceUrl} — LLM found ${object.entities.length} candidate(s)`);
+    emitProgress(`[extract] ${sourceUrl} — LLM found ${object.entities.length} candidate(s)`);
     return object.entities.map((e) => ({
       ...e,
       source: sourceUrl,
     }));
   } catch (err) {
-    console.log(`[extract] ${sourceUrl} — LLM failed, falling back to regex:`, err);
+    emitProgress(`[extract] ${sourceUrl} — LLM failed, falling back to regex: ${err}`);
     return extractEntitiesViaRegex(pageContent, sourceUrl);
   }
 }
@@ -312,8 +313,8 @@ Returns all findings with confidence levels and evidence.`,
     }
 
     const linksToExplore = await pickLinksToExplore(allLinks, dba);
-    console.log(`[links] ${allLinks.length} total links found, ${linksToExplore.length} selected to explore:`);
-    linksToExplore.forEach((url) => console.log(`[links]   → ${url}`));
+    emitProgress(`[links] ${allLinks.length} total links found, ${linksToExplore.length} selected to explore`);
+    linksToExplore.forEach((url) => emitProgress(`[links]   → ${url}`));
 
     // Step 4: Fetch and analyze each selected page in parallel
     const fetches = linksToExplore.map(async (url) => {
