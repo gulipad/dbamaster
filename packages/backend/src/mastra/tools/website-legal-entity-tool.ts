@@ -1,4 +1,5 @@
 import { createCapTool } from '../utils/schema-helpers';
+import { fetchViaJina, normalizeUrl } from '../utils/jina';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
@@ -8,46 +9,6 @@ const llm = google('gemini-3.1-flash-lite-preview');
 
 // Pages above this size use regex extraction instead of an LLM call
 const REGEX_FALLBACK_CHARS = 200_000;
-
-// ---------------------------------------------------------------------------
-// Jina Reader
-// ---------------------------------------------------------------------------
-
-function normalizeUrl(url: string): string {
-  let normalized = url.trim();
-  if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
-    normalized = `https://${normalized}`;
-  }
-  return normalized.replace(/\/+$/, '');
-}
-
-async function fetchViaJina(
-  url: string,
-  options?: { withLinks?: boolean }
-): Promise<string | null> {
-  const jinaUrl = `https://r.jina.ai/${url}`;
-  const headers: Record<string, string> = { Accept: 'text/plain' };
-  if (process.env.JINA_API_KEY) {
-    headers['Authorization'] = `Bearer ${process.env.JINA_API_KEY}`;
-  }
-  if (options?.withLinks) {
-    headers['X-With-Links-Summary'] = 'all';
-  }
-
-  try {
-    const response = await fetch(jinaUrl, { headers });
-    if (!response.ok) {
-      emitProgress(`[jina] FAILED ${url} — status ${response.status}`);
-      return null;
-    }
-    const text = await response.text();
-    emitProgress(`[jina] Fetched ${url} — ${text.length.toLocaleString()} chars`);
-    return text;
-  } catch (err) {
-    emitProgress(`[jina] ERROR ${url} — ${err}`);
-    return null;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Regex fallback for huge pages

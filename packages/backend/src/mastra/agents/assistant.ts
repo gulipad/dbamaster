@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { google } from '@ai-sdk/google';
 import { memory } from '../config/memory';
-import { todaysDateTool, websiteLegalEntityTool } from '../tools';
+import { websiteLegalEntityTool } from '../tools';
 
 export const assistant = new Agent({
   id: 'assistant',
@@ -37,10 +37,9 @@ After analysis, respond with:
 If you cannot determine the legal entity with any confidence, say so clearly and explain what you tried.`,
   model: google('gemini-2.5-flash'),
   tools: {
-    todaysDateTool,
     websiteLegalEntityTool,
   },
-  memory: memory(),
+  memory,
   defaultOptions: {
     maxSteps: 10,
   },

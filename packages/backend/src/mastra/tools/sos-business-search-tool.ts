@@ -1,4 +1,6 @@
 import { createCapTool } from '../utils/schema-helpers';
+import { fetchViaJina } from '../utils/jina';
+import { emitProgress } from '../config/progress';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -21,34 +23,6 @@ interface SearchResult {
 }
 
 type SearchFn = (businessName: string) => Promise<SearchResult>;
-
-// ---------------------------------------------------------------------------
-// Jina Reader
-// ---------------------------------------------------------------------------
-
-async function fetchViaJina(url: string): Promise<string | null> {
-  const jinaUrl = `https://r.jina.ai/${url}`;
-  const headers: Record<string, string> = { Accept: 'text/plain' };
-  if (process.env.JINA_API_KEY) {
-    headers['Authorization'] = `Bearer ${process.env.JINA_API_KEY}`;
-  }
-
-  try {
-    const response = await fetch(jinaUrl, { headers });
-    if (!response.ok) {
-      console.log(`[jina] FAILED ${url} — status ${response.status}`);
-      return null;
-    }
-    const text = await response.text();
-    console.log(
-      `[jina] Fetched ${url} — ${text.length.toLocaleString()} chars`
-    );
-    return text;
-  } catch (err) {
-    console.log(`[jina] ERROR ${url} —`, err);
-    return null;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Direct API search (ND, ID — same vendor platform)
@@ -76,7 +50,7 @@ function createDirectApiSearch(searchUrl: string, portalUrl: string): SearchFn {
       });
 
       if (!response.ok) {
-        console.log(
+        emitProgress(
           `[sos-api] FAILED ${searchUrl} — status ${response.status}`
         );
         return { results: [], sourceUrl: portalUrl };
@@ -98,7 +72,7 @@ function createDirectApiSearch(searchUrl: string, portalUrl: string): SearchFn {
         sourceUrl: portalUrl,
       };
     } catch (err) {
-      console.log(`[sos-api] ERROR ${searchUrl} —`, err);
+      emitProgress(`[sos-api] ERROR ${searchUrl} — ${err}`);
       return { results: [], sourceUrl: portalUrl };
     }
   };
@@ -230,7 +204,7 @@ The agent should derive the state from the address provided by the user.`,
     const search = STATE_SEARCH[stateCode];
 
     if (!search) {
-      console.log(`[sos] Unsupported state: ${stateCode}`);
+      emitProgress(`[sos] Unsupported state: ${stateCode}`);
       return {
         results: [],
         sourceUrl: '',
@@ -239,9 +213,9 @@ The agent should derive the state from the address provided by the user.`,
       };
     }
 
-    console.log(`[sos] Searching ${stateCode} for "${businessName}"`);
+    emitProgress(`[sos] Searching ${stateCode} for "${businessName}"`);
     const { results, sourceUrl } = await search(businessName);
-    console.log(`[sos] ${stateCode}: found ${results.length} result(s)`);
+    emitProgress(`[sos] ${stateCode}: found ${results.length} result(s)`);
 
     const method = stateCode === 'FL' ? 'jina' : 'direct-api';
 

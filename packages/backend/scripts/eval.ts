@@ -1,6 +1,8 @@
 import { readFileSync } from 'fs';
 import { config } from 'dotenv';
 import { websiteLegalEntityTool } from '../src/mastra/tools/website-legal-entity-tool';
+import { normalize, isMatch } from './eval-utils';
+import type { ToolExecutionContext } from '@mastra/core/tools';
 
 config({ path: '.env' });
 
@@ -44,24 +46,16 @@ function pickRandom<T>(arr: T[], n: number): T[] {
   return shuffled.slice(0, n);
 }
 
-function normalize(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[.,]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function isMatch(found: string, expected: string): boolean {
-  const a = normalize(found);
-  const b = normalize(expected);
-  return a === b || a.includes(b) || b.includes(a);
-}
+const stubContext = {} as ToolExecutionContext;
 
 async function main() {
-  const allCases = parseCSV(
-    '/Users/gulipad/Downloads/legal_name_test_set.csv'
-  );
+  const csvPath = process.argv[2];
+  if (!csvPath) {
+    console.error('Usage: npx tsx scripts/eval.ts <path-to-csv>');
+    process.exit(1);
+  }
+
+  const allCases = parseCSV(csvPath);
   const testCases = pickRandom(allCases, 20);
 
   console.log(`\n=== Running eval: ${testCases.length} cases ===\n`);
@@ -84,15 +78,15 @@ async function main() {
     console.log(`  Expected: ${tc.legalName}`);
 
     try {
-      const result = await websiteLegalEntityTool.execute!({
-        websiteUrl: tc.website,
-        dba: tc.dba,
-      } as any, {} as any);
+      const result = await websiteLegalEntityTool.execute!(
+        { websiteUrl: tc.website, dba: tc.dba },
+        stubContext
+      );
 
-      const topFinding = (result as any).findings?.[0];
+      const topFinding = result.findings?.[0];
       const found = topFinding?.legalEntityName ?? null;
       const confidence = topFinding?.confidence ?? 'none';
-      const pagesScanned = (result as any).pagesScanned?.length ?? 0;
+      const pagesScanned = result.pagesScanned?.length ?? 0;
       const match = found ? isMatch(found, tc.legalName) : false;
 
       console.log(`  Found:    ${found ?? '(nothing)'} [${confidence}]`);

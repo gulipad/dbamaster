@@ -6,7 +6,7 @@ import { onProgress } from './config/progress';
 
 export const mastra = new Mastra({
   agents: { assistant },
-  storage: storage(),
+  storage,
   server: {
     apiRoutes: [
       registerApiRoute('/auth/verify', {

@@ -2,6 +2,8 @@ import { config } from 'dotenv';
 config({ path: '.env' });
 
 import { websiteLegalEntityTool } from '../src/mastra/tools/website-legal-entity-tool';
+import { isMatch } from './eval-utils';
+import type { ToolExecutionContext } from '@mastra/core/tools';
 
 const cases = [
   { dba: 'Bench Accounting', legalName: 'Bench Accounting, Inc.', website: 'bench.co' },
@@ -16,15 +18,7 @@ const cases = [
   { dba: 'Palazzo Lakeside Hotel', legalName: 'MM Lake Hotel LLC', website: 'wwww.palazzolakesidehotel.com' },
 ];
 
-function normalize(name: string): string {
-  return name.toLowerCase().replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
-}
-
-function isMatch(found: string, expected: string): boolean {
-  const a = normalize(found);
-  const b = normalize(expected);
-  return a === b || a.includes(b) || b.includes(a);
-}
+const stubContext = {} as ToolExecutionContext;
 
 async function main() {
   console.log(`\n=== Retrying ${cases.length} rate-limited cases ===\n`);
@@ -38,14 +32,14 @@ async function main() {
 
     try {
       const result = await websiteLegalEntityTool.execute!(
-        { websiteUrl: tc.website, dba: tc.dba } as any,
-        {} as any
+        { websiteUrl: tc.website, dba: tc.dba },
+        stubContext
       );
 
-      const topFinding = (result as any).findings?.[0];
+      const topFinding = result.findings?.[0];
       const found = topFinding?.legalEntityName ?? null;
       const confidence = topFinding?.confidence ?? 'none';
-      const pagesScanned = (result as any).pagesScanned?.length ?? 0;
+      const pagesScanned = result.pagesScanned?.length ?? 0;
       const match = found ? isMatch(found, tc.legalName) : false;
       if (match) matches++;
 

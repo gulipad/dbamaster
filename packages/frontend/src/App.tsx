@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type CSSProperties } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { MastraClient } from "@mastra/client-js";
 
 const client = new MastraClient({ baseUrl: "" });
@@ -224,24 +224,24 @@ export function App() {
     : ASCII_FRONT_LINES.slice(0, bootLines).join("\n") + "\n";
 
   return (
-    <div style={styles.container}>
-      <div style={styles.asciiWrapper}>
-        <pre style={styles.asciiBack}>{ASCII_BACK}</pre>
-        <pre style={styles.asciiFront}>{frontRevealed}</pre>
+    <div className="container">
+      <div className="ascii-wrapper">
+        <pre className="ascii-back">{ASCII_BACK}</pre>
+        <pre className="ascii-front">{frontRevealed}</pre>
       </div>
-      <p style={styles.subtitle}>legal entity finder // v1.0</p>
+      <p className="subtitle">legal entity finder // v1.0</p>
 
-      <div style={styles.divider} />
+      <div className="divider" />
 
       {stage === "loading" ? null : stage === "password" ? (
-        <div style={styles.passwordArea}>
-          <div style={styles.passwordRow}>
+        <div className="password-area">
+          <div className="password-row">
             <span style={{ opacity: passwordError ? 1 : 0.6, fontSize: "0.8rem", color: passwordError ? "#ff4444" : "var(--amber)" }}>
               {passwordError ? "access denied. try again." : "enter password to start"}
             </span>
           </div>
-          <div style={styles.inputRow} onClick={() => passwordRef.current?.focus()}>
-            <span style={styles.prompt}>&gt;</span>
+          <div className="input-row" onClick={() => passwordRef.current?.focus()}>
+            <span className="prompt">&gt;</span>
             <div style={{ position: "relative", flex: 1 }}>
               <input
                 ref={passwordRef}
@@ -250,25 +250,25 @@ export function App() {
                 onChange={handlePasswordChange}
                 onKeyDown={handlePasswordKeyDown}
                 autoFocus
-                style={styles.hiddenInput}
+                className="hidden-input"
               />
-              <span style={styles.passwordText}>
+              <span className="password-text">
                 {"*".repeat(password.length)}
-                <span style={styles.cursor}>█</span>
+                <span className="cursor">█</span>
               </span>
             </div>
           </div>
         </div>
       ) : logs.length === 0 ? (
-        <div style={styles.inputArea}>
-          <p style={styles.hint}>
+        <div>
+          <p className="hint">
             Enter a website URL to find the legal entity. Optionally include a DBA name.
           </p>
-          <div style={styles.inputRow}>
-            <span style={styles.prompt}>&gt;</span>
+          <div className="input-row">
+            <span className="prompt">&gt;</span>
             <input
               ref={inputRef}
-              style={styles.input}
+              className="input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -277,10 +277,8 @@ export function App() {
               disabled={streaming}
             />
             <button
-              style={{
-                ...styles.button,
-                opacity: hasWebsite && !streaming ? 1 : 0.4,
-              }}
+              className="button"
+              style={{ opacity: hasWebsite && !streaming ? 1 : 0.4 }}
               onClick={handleStart}
               disabled={!hasWebsite || streaming}
             >
@@ -289,15 +287,15 @@ export function App() {
           </div>
         </div>
       ) : (
-        <div ref={outputRef} style={styles.output}>
+        <div ref={outputRef} className="output">
           {logs.map((entry, i) => (
             <LogLine key={i} entry={entry} />
           ))}
-          {streaming && <span style={styles.cursor}>█</span>}
+          {streaming && <span className="cursor">█</span>}
           {done && (
             <>
-              <div style={{ ...styles.divider, marginTop: 16 }} />
-              <button style={styles.button} onClick={handleReset} autoFocus>
+              <div className="divider" style={{ marginTop: 16 }} />
+              <button className="button" onClick={handleReset} autoFocus>
                 [ NEW SEARCH ] or press Enter
               </button>
             </>
@@ -345,25 +343,8 @@ function parseResultText(text: string): { preamble: string; fields: ParsedField[
 
 function CLISection({ label, children, noBorderTop }: { label?: string; children: React.ReactNode; noBorderTop?: boolean }) {
   return (
-    <div
-      style={{
-        padding: "0.6rem 0.75rem",
-        borderTop: noBorderTop ? "none" : "1px solid rgba(204, 140, 0, 0.25)",
-      }}
-    >
-      {label && (
-        <div
-          style={{
-            fontSize: "0.6rem",
-            opacity: 0.5,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            marginBottom: 4,
-          }}
-        >
-          {label}
-        </div>
-      )}
+    <div className={`cli-section${noBorderTop ? " cli-section--no-border" : ""}`}>
+      {label && <div className="cli-section__label">{label}</div>}
       {children}
     </div>
   );
@@ -373,20 +354,20 @@ function ResultText({ text }: { text: string }) {
   const { preamble, fields, rest } = parseResultText(text);
 
   if (fields.length === 0) {
-    return <div style={styles.logText}>{text}</div>;
+    return <div className="log-text">{text}</div>;
   }
 
   return (
     <div style={{ marginTop: 12 }}>
-      {preamble && <div style={{ ...styles.logText, marginBottom: 12 }}>{preamble}</div>}
-      <div style={styles.cliFrame}>
+      {preamble && <div className="log-text" style={{ marginBottom: 12 }}>{preamble}</div>}
+      <div className="cli-frame">
         {fields.map((field, i) => (
           <CLISection key={i} label={field.key} noBorderTop={i === 0}>
-            <div style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>{field.value}</div>
+            <div className="cli-section__value">{field.value}</div>
           </CLISection>
         ))}
       </div>
-      {rest && <div style={{ ...styles.logText, marginTop: 12 }}>{rest}</div>}
+      {rest && <div className="log-text" style={{ marginTop: 12 }}>{rest}</div>}
     </div>
   );
 }
@@ -394,178 +375,24 @@ function ResultText({ text }: { text: string }) {
 function LogLine({ entry }: { entry: LogEntry }) {
   switch (entry.type) {
     case "system":
-      return <div style={styles.logSystem}>{entry.text}</div>;
+      return <div className="log-system">{entry.text}</div>;
     case "tool-call":
       return (
-        <div style={styles.logTool}>
+        <div className="log-tool">
           ⚙ executing: {entry.name}...
         </div>
       );
     case "tool-result":
       return (
-        <div style={styles.logToolResult}>
+        <div className="log-tool-result">
           ✓ {entry.name} complete
         </div>
       );
     case "text":
       return <ResultText text={entry.text} />;
     case "progress":
-      return <div style={styles.logProgress}>{entry.text}</div>;
+      return <div className="log-progress">{entry.text}</div>;
     case "error":
-      return <div style={styles.logError}>{entry.text}</div>;
+      return <div className="log-error">{entry.text}</div>;
   }
 }
-
-const styles: Record<string, CSSProperties> = {
-  container: {
-    maxWidth: 800,
-    margin: "0 auto",
-    padding: "40px 24px",
-    minHeight: "100vh",
-  },
-  asciiWrapper: {
-    position: "relative",
-    marginBottom: 28,
-  },
-  asciiBack: {
-    position: "relative",
-    fontSize: "0.7rem",
-    lineHeight: 1.2,
-    color: "var(--amber-dim)",
-    opacity: 0.3,
-    whiteSpace: "pre",
-    userSelect: "none",
-  },
-  asciiFront: {
-    position: "absolute",
-    top: -2,
-    left: -2,
-    fontSize: "0.7rem",
-    lineHeight: 1.2,
-    color: "var(--amber)",
-    whiteSpace: "pre",
-  },
-  subtitle: {
-    fontSize: "0.75rem",
-    opacity: 0.5,
-    marginBottom: 24,
-  },
-  divider: {
-    borderBottom: "1px solid var(--amber-dim)",
-    opacity: 0.3,
-    marginBottom: 24,
-  },
-  passwordArea: {
-    outline: "none",
-  },
-  passwordRow: {
-    marginBottom: 12,
-    color: "var(--amber)",
-  },
-  hiddenInput: {
-    position: "absolute",
-    opacity: 0,
-    width: "100%",
-    height: "100%",
-    top: 0,
-    left: 0,
-    border: "none",
-    background: "transparent",
-    color: "transparent",
-    fontFamily: "inherit",
-    fontSize: "0.85rem",
-    outline: "none",
-    caretColor: "transparent",
-  },
-  passwordText: {
-    fontSize: "0.85rem",
-    letterSpacing: "0.15em",
-  },
-  hint: {
-    fontSize: "0.8rem",
-    opacity: 0.6,
-    marginBottom: 16,
-  },
-  inputArea: {},
-  inputRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  prompt: {
-    fontSize: "0.9rem",
-    opacity: 0.8,
-  },
-  input: {
-    flex: 1,
-    background: "transparent",
-    border: "1px solid var(--amber-dim)",
-    color: "var(--amber)",
-    fontFamily: "inherit",
-    fontSize: "0.85rem",
-    padding: "8px 12px",
-    outline: "none",
-  },
-  button: {
-    background: "transparent",
-    border: "1px solid var(--amber)",
-    color: "var(--amber)",
-    fontFamily: "inherit",
-    fontSize: "0.8rem",
-    padding: "8px 16px",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    outline: "none",
-  },
-  output: {
-    maxHeight: "calc(100vh - 220px)",
-    overflowY: "auto",
-    paddingRight: 8,
-  },
-  cursor: {
-    animation: "blink 1s step-end infinite",
-    fontSize: "0.85rem",
-  },
-  logSystem: {
-    fontSize: "0.8rem",
-    opacity: 0.7,
-    marginBottom: 12,
-    fontStyle: "italic",
-  },
-  logTool: {
-    fontSize: "0.75rem",
-    color: "var(--amber-dim)",
-    marginBottom: 4,
-    paddingLeft: 8,
-  },
-  logToolResult: {
-    fontSize: "0.75rem",
-    color: "var(--amber)",
-    opacity: 0.6,
-    marginBottom: 8,
-    paddingLeft: 8,
-  },
-  logText: {
-    fontSize: "0.85rem",
-    lineHeight: 1.6,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  },
-  cliFrame: {
-    fontFamily: "inherit",
-    color: "var(--amber)",
-  },
-  logProgress: {
-    fontSize: "0.7rem",
-    color: "var(--amber-dim)",
-    opacity: 0.7,
-    marginBottom: 2,
-    paddingLeft: 8,
-    fontStyle: "italic",
-  },
-  logError: {
-    fontSize: "0.8rem",
-    color: "#ff4444",
-    marginTop: 8,
-  },
-};
