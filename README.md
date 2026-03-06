@@ -9,13 +9,14 @@
 
 **legal entity finder // v1.0**
 
-Given a DBA (trade name), address, and website, DBA Master finds the legal entity behind any US company. It scrapes the website for clues (privacy policies, terms of service, copyright footers), uses AI to extract entity names, and can cross-reference state Secretary of State registries.
+Given a website URL, DBA Master finds the legal entity (LLC, Inc, Corp, etc.) that owns or operates the site. It scrapes the homepage and legal pages — privacy policies, terms of service, copyright footers — and uses AI to extract the registered company name.
 
 ## How it works
 
-1. **Website scraping** — Fetches the homepage via [Jina Reader](https://jina.ai/reader/), discovers links to legal pages, and fetches those too.
-2. **AI extraction** — Uses Gemini Flash to extract legal entity names from page content, with regex fallback for very large pages.
-3. **SOS lookup** *(optional)* — Searches state business registries (FL, ND, ID) to verify or discover entity names.
+1. **Homepage fetch** — Fetches the homepage via [Jina Reader](https://jina.ai/reader/) and extracts all links.
+2. **Legal page discovery** — An LLM picks the most promising links (privacy policy, terms, about, imprint) and fetches them.
+3. **Entity extraction** — Each page is analyzed by Gemini Flash to find legal entity names with confidence levels, falling back to regex for very large pages.
+4. **Deduplication** — Results are deduplicated and ranked by confidence, then the agent reasons over the candidates to pick the best match.
 
 ## Stack
 
@@ -35,7 +36,6 @@ packages/
       agents/assistant.ts    — DBA Master agent
       tools/
         website-legal-entity-tool.ts  — Website scraping + AI extraction
-        sos-business-search-tool.ts   — State registry search
       utils/
         jina.ts              — Shared Jina Reader client
         schema-helpers.ts    — Zod v4 compatibility wrapper
@@ -71,7 +71,7 @@ cp packages/backend/.env.example packages/backend/.env
 pnpm dev
 ```
 
-The backend runs on `:4111` (Mastra dev server) and the frontend on `:5173` (Vite), proxied to the backend.
+The backend runs on `:4111` (Mastra dev server) and the frontend on `:3000` (Vite), proxied to the backend.
 
 ## Usage
 
