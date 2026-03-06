@@ -274,7 +274,7 @@ export function App() {
           }}
         >
           <p className="hint">
-            Enter a website URL to find the legal entity. Optionally include a DBA name.
+            Enter a website URL to find the legal entity.
           </p>
           <div className="input-row">
             <span className="prompt">&gt;</span>
@@ -283,7 +283,7 @@ export function App() {
               className="input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="e.g. joespizza.com or joespizza.com, DBA Joe's Pizza"
+              placeholder="e.g. joespizza.com"
               inputMode="url"
               enterKeyHint="search"
               autoCapitalize="none"

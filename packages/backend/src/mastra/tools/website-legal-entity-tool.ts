@@ -104,7 +104,6 @@ const entityExtractionSchema = z.object({
 
 async function extractEntitiesFromPage(
   pageContent: string,
-  dba: string,
   sourceUrl: string
 ): Promise<Finding[]> {
   // Huge pages: fall back to regex instead of sending to LLM
@@ -120,7 +119,6 @@ async function extractEntitiesFromPage(
       model: llm,
       schema: entityExtractionSchema,
       prompt: `You are analyzing a web page to find the legal entity that OWNS or OPERATES this website.
-${dba ? `\nThe business operates under the name (DBA): "${dba}"` : ''}
 The page URL is: ${sourceUrl}
 
 You are looking for the registered company name (e.g. "Acme Holdings LLC") that owns this website.
@@ -171,8 +169,7 @@ const linkSelectionSchema = z.object({
 });
 
 async function pickLinksToExplore(
-  allLinks: string[],
-  dba: string
+  allLinks: string[]
 ): Promise<string[]> {
   if (allLinks.length === 0) return [];
 
@@ -180,7 +177,7 @@ async function pickLinksToExplore(
     const { object } = await generateObject({
       model: llm,
       schema: linkSelectionSchema,
-      prompt: `You are helping find the legal entity behind a business${dba ? ` called "${dba}"` : ''}.
+      prompt: `You are helping find the legal entity behind a business.
 
 Below is a list of links found on their website. Pick up to 4 URLs that are most likely to contain the company's legal entity name. Prioritize:
 1. Privacy policy pages (almost always name the legal entity)
@@ -212,12 +209,6 @@ and uses AI to extract the legal entity name from each page.
 Returns all findings with confidence levels and evidence.`,
   inputSchema: z.object({
     websiteUrl: z.string().describe('The company website URL'),
-    dba: z
-      .string()
-      .optional()
-      .describe(
-        'The DBA / trade name the company operates under. Helps disambiguate when multiple entities appear on a page.'
-      ),
   }),
   outputSchema: z.object({
     findings: z
@@ -236,7 +227,7 @@ Returns all findings with confidence levels and evidence.`,
       .array(z.string())
       .describe('URLs that were successfully scanned'),
   }),
-  execute: async ({ websiteUrl, dba = '' }) => {
+  execute: async ({ websiteUrl }) => {
     const baseUrl = normalizeUrl(websiteUrl);
     const findings: Finding[] = [];
     const pagesScanned: string[] = [];
@@ -251,7 +242,6 @@ Returns all findings with confidence levels and evidence.`,
     // Step 2: Check homepage for legal entity
     const homepageFindings = await extractEntitiesFromPage(
       homepage,
-      dba,
       baseUrl
     );
     findings.push(...homepageFindings);
@@ -273,7 +263,7 @@ Returns all findings with confidence levels and evidence.`,
       }
     }
 
-    const linksToExplore = await pickLinksToExplore(allLinks, dba);
+    const linksToExplore = await pickLinksToExplore(allLinks);
     emitProgress(`[links] ${allLinks.length} total links found, ${linksToExplore.length} selected to explore`);
     linksToExplore.forEach((url) => emitProgress(`[links]   → ${url}`));
 
@@ -283,7 +273,7 @@ Returns all findings with confidence levels and evidence.`,
       if (!content) return;
 
       pagesScanned.push(url);
-      const pageFindings = await extractEntitiesFromPage(content, dba, url);
+      const pageFindings = await extractEntitiesFromPage(content, url);
       findings.push(...pageFindings);
     });
 

@@ -75,10 +75,10 @@ The backend runs on `:4111` (Mastra dev server) and the frontend on `:3000` (Vit
 
 ## Usage
 
-Open the frontend, enter a password, then type a website URL (optionally with a DBA name):
+Open the frontend, enter a password, then type a website URL:
 
 ```
-> joespizza.com, DBA Joe's Pizza
+> joespizza.com
 ```
 
 The agent will scrape the site, find legal pages, extract entity names, and return the result with confidence levels and sources.

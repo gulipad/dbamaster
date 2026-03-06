@@ -79,7 +79,7 @@ async function main() {
 
     try {
       const result = await websiteLegalEntityTool.execute!(
-        { websiteUrl: tc.website, dba: tc.dba },
+        { websiteUrl: tc.website },
         stubContext
       );
 
