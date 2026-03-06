@@ -39,6 +39,7 @@ async function verifyPassword(password: string): Promise<boolean> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password }),
   });
+  if (!res.ok) return false;
   const data = await res.json();
   return data.valid === true;
 }
@@ -59,13 +60,18 @@ export function App() {
   // Check stored password on mount
   useEffect(() => {
     (async () => {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const valid = await verifyPassword(stored);
-        if (valid) {
-          setStage("ready");
-          return;
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const valid = await verifyPassword(stored);
+          if (valid) {
+            setStage("ready");
+            return;
+          }
+          localStorage.removeItem(STORAGE_KEY);
         }
+      } catch {
+        // Backend unreachable — clear stale token
         localStorage.removeItem(STORAGE_KEY);
       }
       setStage("password");
@@ -79,9 +85,17 @@ export function App() {
     return () => clearTimeout(timer);
   }, [bootLines]);
 
-  // Focus password input
+  // Keep password input focused unconditionally during password stage
   useEffect(() => {
-    if (stage === "password") passwordRef.current?.focus();
+    if (stage !== "password") return;
+    const refocus = () => passwordRef.current?.focus();
+    refocus();
+    window.addEventListener("click", refocus);
+    window.addEventListener("focusout", refocus);
+    return () => {
+      window.removeEventListener("click", refocus);
+      window.removeEventListener("focusout", refocus);
+    };
   }, [stage]);
 
   const scrollToBottom = useCallback(() => {

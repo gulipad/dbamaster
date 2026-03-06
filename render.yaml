@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: dbamaster
+    runtime: node
+    plan: free
+    buildCommand: pnpm install && pnpm --filter @dbamaster/frontend build && pnpm --filter @dbamaster/backend build
+    startCommand: node server.mjs
+    envVars:
+      - key: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+      - key: JINA_API_KEY
+        sync: false
+      - key: PASSWORD
+        sync: false
