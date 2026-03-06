@@ -6,3 +6,4 @@ mastra.db-shm
 mastra.db-wal
 .env
 .DS_Store
+*.tsbuildinfo
