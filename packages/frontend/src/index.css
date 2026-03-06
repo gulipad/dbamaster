@@ -17,6 +17,13 @@ body {
   font-family: "SF Mono", Monaco, "Inconsolata", "Fira Mono",
     "Droid Sans Mono", "Source Code Pro", monospace;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 ::selection {
@@ -45,22 +52,28 @@ body {
 
 /* Layout */
 .container {
-  max-width: 800px;
+  width: min(100%, 800px);
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: clamp(20px, 4vw, 40px) clamp(16px, 3vw, 24px) 32px;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ASCII art */
 .ascii-wrapper {
   position: relative;
   margin-bottom: 28px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ascii-back {
   position: relative;
-  font-size: 0.7rem;
-  line-height: 1.2;
+  display: inline-block;
+  min-width: 100%;
+  font-size: clamp(0.28rem, 1.2vw, 0.7rem);
+  line-height: 1.15;
   color: var(--amber-dim);
   opacity: 0.3;
   white-space: pre;
@@ -71,10 +84,11 @@ body {
   position: absolute;
   top: -2px;
   left: -2px;
-  font-size: 0.7rem;
-  line-height: 1.2;
+  font-size: clamp(0.28rem, 1.2vw, 0.7rem);
+  line-height: 1.15;
   color: var(--amber);
   white-space: pre;
+  pointer-events: none;
 }
 
 .subtitle {
@@ -99,27 +113,6 @@ body {
   color: var(--amber);
 }
 
-.hidden-input {
-  position: absolute;
-  opacity: 0;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  border: none;
-  background: transparent;
-  color: transparent;
-  font-family: inherit;
-  font-size: 0.85rem;
-  outline: none;
-  caret-color: transparent;
-}
-
-.password-text {
-  font-size: 0.85rem;
-  letter-spacing: 0.15em;
-}
-
 /* Input area */
 .hint {
   font-size: 0.8rem;
@@ -131,14 +124,18 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
 .prompt {
   font-size: 0.9rem;
   opacity: 0.8;
+  flex: 0 0 auto;
 }
 
 .input {
+  width: 100%;
+  min-width: 0;
   flex: 1;
   background: transparent;
   border: 1px solid var(--amber-dim);
@@ -147,6 +144,8 @@ body {
   font-size: 0.85rem;
   padding: 8px 12px;
   outline: none;
+  border-radius: 0;
+  min-height: 44px;
 }
 
 .button {
@@ -159,13 +158,35 @@ body {
   cursor: pointer;
   white-space: nowrap;
   outline: none;
+  min-height: 44px;
+  touch-action: manipulation;
+  flex: 0 0 auto;
+}
+
+.button:disabled,
+.input:disabled {
+  cursor: default;
+}
+
+.search-form,
+.password-area {
+  display: grid;
+  gap: 0;
+}
+
+.password-input {
+  letter-spacing: 0.08em;
 }
 
 /* Output */
 .output {
-  max-height: calc(100vh - 220px);
+  max-height: calc(100dvh - 220px);
   overflow-y: auto;
   padding-right: 8px;
+}
+
+.output-actions {
+  display: flex;
 }
 
 .cursor {
@@ -244,4 +265,45 @@ body {
 .cli-section__value {
   font-size: 0.8rem;
   line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding-bottom: 24px;
+  }
+
+  .subtitle,
+  .hint,
+  .log-system,
+  .log-tool,
+  .log-tool-result,
+  .log-text,
+  .log-error,
+  .cli-section__value {
+    font-size: max(0.74rem, 12px);
+  }
+
+  .input-row {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .prompt {
+    width: 100%;
+  }
+
+  .input,
+  .button,
+  .output-actions .button {
+    width: 100%;
+  }
+
+  .output {
+    max-height: calc(100dvh - 260px);
+    padding-right: 0;
+  }
+
+  .output-actions {
+    width: 100%;
+  }
 }

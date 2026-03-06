@@ -85,18 +85,17 @@ export function App() {
     return () => clearTimeout(timer);
   }, [bootLines]);
 
-  // Keep password input focused unconditionally during password stage
   useEffect(() => {
     if (stage !== "password") return;
-    const refocus = () => passwordRef.current?.focus();
-    refocus();
-    window.addEventListener("click", refocus);
-    window.addEventListener("focusout", refocus);
-    return () => {
-      window.removeEventListener("click", refocus);
-      window.removeEventListener("focusout", refocus);
-    };
+    const timer = window.setTimeout(() => passwordRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
   }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "ready" || logs.length > 0 || streaming) return;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [stage, logs.length, streaming]);
 
   const scrollToBottom = useCallback(() => {
     if (outputRef.current) {
@@ -129,7 +128,8 @@ export function App() {
     setPasswordError(false);
   };
 
-  const handlePasswordSubmit = async () => {
+  const handlePasswordSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!password) return;
     const valid = await verifyPassword(password);
     if (valid) {
@@ -139,10 +139,6 @@ export function App() {
       setPasswordError(true);
       setPassword("");
     }
-  };
-
-  const handlePasswordKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handlePasswordSubmit();
   };
 
   const hasWebsite = /[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(input);
@@ -227,11 +223,6 @@ export function App() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleStart();
-  };
-
-
   const animDone = bootLines >= ASCII_FRONT_LINES.length;
   const frontRevealed = animDone
     ? ASCII_FRONT
@@ -248,33 +239,40 @@ export function App() {
       <div className="divider" />
 
       {stage === "loading" ? null : stage === "password" ? (
-        <div className="password-area">
+        <form className="password-area" onSubmit={(e) => void handlePasswordSubmit(e)}>
           <div className="password-row">
             <span style={{ opacity: passwordError ? 1 : 0.6, fontSize: "0.8rem", color: passwordError ? "#ff4444" : "var(--amber)" }}>
               {passwordError ? "access denied. try again." : "enter password to start"}
             </span>
           </div>
-          <div className="input-row" onClick={() => passwordRef.current?.focus()}>
+          <div className="input-row">
             <span className="prompt">&gt;</span>
-            <div style={{ position: "relative", flex: 1 }}>
-              <input
-                ref={passwordRef}
-                type="password"
-                value={password}
-                onChange={handlePasswordChange}
-                onKeyDown={handlePasswordKeyDown}
-                autoFocus
-                className="hidden-input"
-              />
-              <span className="password-text">
-                {"*".repeat(password.length)}
-                <span className="cursor">█</span>
-              </span>
-            </div>
+            <input
+              ref={passwordRef}
+              type="password"
+              value={password}
+              onChange={handlePasswordChange}
+              className="input password-input"
+              placeholder="Password"
+              enterKeyHint="done"
+              autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <button type="submit" className="button" disabled={!password}>
+              [ UNLOCK ]
+            </button>
           </div>
-        </div>
+        </form>
       ) : logs.length === 0 ? (
-        <div>
+        <form
+          className="search-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleStart();
+          }}
+        >
           <p className="hint">
             Enter a website URL to find the legal entity. Optionally include a DBA name.
           </p>
@@ -285,21 +283,24 @@ export function App() {
               className="input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
               placeholder="e.g. joespizza.com or joespizza.com, DBA Joe's Pizza"
-              autoFocus
+              inputMode="url"
+              enterKeyHint="search"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               disabled={streaming}
             />
             <button
+              type="submit"
               className="button"
               style={{ opacity: hasWebsite && !streaming ? 1 : 0.4 }}
-              onClick={handleStart}
               disabled={!hasWebsite || streaming}
             >
               [ START ]
             </button>
           </div>
-        </div>
+        </form>
       ) : (
         <div ref={outputRef} className="output">
           {logs.map((entry, i) => (
@@ -309,9 +310,11 @@ export function App() {
           {done && (
             <>
               <div className="divider" style={{ marginTop: 16 }} />
-              <button className="button" onClick={handleReset} autoFocus>
-                [ NEW SEARCH ] or press Enter
-              </button>
+              <div className="output-actions">
+                <button className="button" onClick={handleReset} autoFocus>
+                  [ NEW SEARCH ] or press Enter
+                </button>
+              </div>
             </>
           )}
         </div>
